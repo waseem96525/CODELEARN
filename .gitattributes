@@ -1,0 +1,10 @@
+# Keep line endings consistent: the repo is developed on Windows but built on
+# Linux, so normalise to LF in the repository and let git convert on checkout.
+* text=auto eol=lf
+
+# Binary assets that must never be line-ending converted
+*.ico binary
+*.png binary
+*.jpg binary
+*.webp binary
+*.db binary

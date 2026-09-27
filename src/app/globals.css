@@ -1,26 +1,236 @@
 @import "tailwindcss";
 
+/* next-themes toggles `.dark` on <html>; opt Tailwind's `dark:` variant into it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Design tokens
+
+   One palette expressed as semantic roles. Components only ever reference the
+   role (`bg-card`, `text-muted-foreground`), never a raw colour, so a theme
+   change is a single block below rather than a sweep through the codebase.
+--------------------------------------------------------------------------- */
+
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f1729;
+
+  --card: #ffffff;
+  --card-foreground: #0f1729;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #5b6b83;
+
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #4f46e5;
+
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --primary-soft: #eef2ff;
+
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f1729;
+
+  --accent: #eef2ff;
+  --accent-foreground: #3730a3;
+
+  --success: #047857;
+  --success-soft: #ecfdf5;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --info: #0369a1;
+  --info-soft: #f0f9ff;
+
+  /* Track accents for HTML / CSS / JavaScript */
+  --track-html: #e8590c;
+  --track-css: #0b7285;
+  --track-js: #b08b00;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #334155;
+  --sidebar-border: #e2e8f0;
+  --sidebar-accent: #eef2ff;
+  --sidebar-accent-foreground: #3730a3;
+
+  /* Code editor chrome, kept independent from the app theme */
+  --editor-bg: #ffffff;
+  --editor-border: #e2e8f0;
+
+  --radius: 0.75rem;
+
+  --shadow-card: 0 1px 2px rgb(15 23 41 / 0.04), 0 1px 3px rgb(15 23 41 / 0.06);
+  --shadow-pop: 0 10px 30px -10px rgb(15 23 41 / 0.25);
+}
+
+.dark {
+  --background: #0a0f1c;
+  --foreground: #e8eefb;
+
+  --card: #111827;
+  --card-foreground: #e8eefb;
+
+  --muted: #18202f;
+  --muted-foreground: #94a3b8;
+
+  --border: #232c3d;
+  --input: #334155;
+  --ring: #818cf8;
+
+  --primary: #818cf8;
+  --primary-foreground: #0a0f1c;
+  --primary-soft: #1e1b4b;
+
+  --secondary: #1a2332;
+  --secondary-foreground: #e8eefb;
+
+  --accent: #1e1b4b;
+  --accent-foreground: #c7d2fe;
+
+  --success: #34d399;
+  --success-soft: #052e23;
+  --warning: #fbbf24;
+  --warning-soft: #3a2a06;
+  --danger: #f87171;
+  --danger-soft: #3f1414;
+  --info: #38bdf8;
+  --info-soft: #062b3d;
+
+  --track-html: #fb923c;
+  --track-css: #22d3ee;
+  --track-js: #facc15;
+
+  --sidebar: #0d1421;
+  --sidebar-foreground: #b6c2d4;
+  --sidebar-border: #1c2434;
+  --sidebar-accent: #1e1b4b;
+  --sidebar-accent-foreground: #c7d2fe;
+
+  --editor-bg: #0d1421;
+  --editor-border: #1c2434;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-pop: 0 10px 30px -10px rgb(0 0 0 / 0.6);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-track-html: var(--track-html);
+  --color-track-css: var(--track-css);
+  --color-track-js: var(--track-js);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-editor: var(--editor-bg);
+  --color-editor-border: var(--editor-border);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  --radius-card: var(--radius);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    /* Faint dot grid: reads as "developer tool" without shouting. */
+    background-image: radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--foreground) 6%, transparent) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+
+  /* Visible, consistent focus ring for keyboard users only. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+
+  ::selection {
+    @apply bg-primary/25;
+  }
+
+  /* Scrollbars that don't fight the theme. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--input) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    @apply rounded-full border-[3px] border-solid border-transparent bg-input bg-clip-content;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Skip link: first tab stop on every authenticated page. */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground;
+  }
+
+  .prose-lesson {
+    @apply text-[15px] leading-7 text-foreground/90;
+  }
+}
+
+/* Honour the OS "reduce motion" setting and the in-app toggle. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }

@@ -1,0 +1,500 @@
+// CodeLearn — data model
+//
+// The datasource is PostgreSQL, which is what production runs on (Vercel's
+// filesystem is ephemeral, so a SQLite file cannot be used there).
+//
+// Two choices keep the schema portable and the queries provider-agnostic:
+//   1. enums are modelled as `String` + checked in TypeScript rather than as
+//      native enums, so changing the value set is a code change, not a migration
+//   2. structured columns are stored as JSON `String` + (de)serialised in
+//      `src/lib/json.ts`, which works identically on any provider
+// Both map 1:1 to native Postgres types if you ever want them.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  avatar       String?
+  bio          String?
+  /// "STUDENT" | "ADMIN" — never trusted from the client, always read from this row
+  role         String   @default("STUDENT")
+
+  // Gamification
+  xp            Int @default(0)
+  level         Int @default(1)
+  streak        Int @default(0)
+  longestStreak Int @default(0)
+  /// Last day (YYYY-MM-DD, UTC) on which a learning activity was recorded
+  lastActiveOn String?
+  lastLoginAt  DateTime @default(now())
+
+  // Preferences
+  dailyGoalMinutes Int                  @default(30)
+  notifyLessons    Boolean              @default(true)
+  notifyStreaks    Boolean              @default(true)
+  notifyBadges     Boolean              @default(true)
+  notifyProjects   Boolean              @default(true)
+  notifyMarketing  Boolean              @default(false)
+  editorTheme      String               @default("system")
+  reduceMotion     Boolean              @default(false)
+
+  emailVerified   Boolean   @default(false)
+  verifiedAt      DateTime?
+  onboardingDone  Boolean   @default(false)
+  onboardingData  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  sessions           Session[]
+  passwordResetToken PasswordResetToken[]
+  progress           UserProgress[]
+  notes              Note[]
+  bookmarks          Bookmark[]
+  submissions        ChallengeSubmission[]
+  userProjects       UserProject[]
+  achievements       UserAchievement[]
+  activities         DailyActivity[]
+  notifications      Notification[]
+  certificates       Certificate[]
+  assignedPath       LearningPath?       @relation(fields: [assignedPathId], references: [id])
+  assignedPathId     String?
+  xpLedger           XpEvent[]
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Curriculum
+// ---------------------------------------------------------------------------
+
+model Course {
+  id          String  @id @default(cuid())
+  title       String
+  slug        String  @unique
+  description String
+  tagline     String?
+  difficulty  String  @default("BEGINNER")
+  /// "HTML" | "CSS" | "JAVASCRIPT" | ...
+  track       String
+  icon        String  @default("Code2")
+  accent      String  @default("violet")
+  thumbnail   String?
+  published   Boolean @default(true)
+  orderIndex  Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lessons       Lesson[]
+  pathStages    LearningPathStage[]
+  progress      UserProgress[]
+
+  @@index([track, orderIndex])
+}
+
+model Lesson {
+  id                String   @id @default(cuid())
+  courseId          String
+  course            Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title             String
+  slug              String
+  summary           String
+  /// JSON LessonContent — see src/lib/lesson-content.ts
+  content           String
+  orderIndex        Int
+  estimatedMinutes  Int      @default(10)
+  difficulty        String   @default("BEGINNER")
+  published         Boolean  @default(true)
+  isProject         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  questions QuizQuestion[]
+  progress  UserProgress[]
+  notes     Note[]
+  bookmarks Bookmark[]
+
+  @@unique([courseId, slug])
+  @@index([courseId, orderIndex])
+}
+
+// ---------------------------------------------------------------------------
+// Quizzes
+// ---------------------------------------------------------------------------
+
+model QuizQuestion {
+  id       String @id @default(cuid())
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  question String
+  /// "MULTIPLE_CHOICE" | "TRUE_FALSE" | "CODE_OUTPUT" | "CODE_COMPLETION" | "DEBUGGING" | "MULTIPLE_ANSWER"
+  type     String @default("MULTIPLE_CHOICE")
+  /// Optional code block shown above the question
+  code     String?
+  explanation String?
+  /// Points awarded for a correct answer
+  xpReward Int    @default(10)
+  orderIndex Int  @default(0)
+
+  options QuizOption[]
+  attempts QuizAttempt[]
+
+  @@index([lessonId, orderIndex])
+}
+
+model QuizOption {
+  id         String       @id @default(cuid())
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  optionText String
+  isCorrect  Boolean      @default(false)
+  orderIndex Int          @default(0)
+
+  @@index([questionId])
+}
+
+/// One graded attempt at a whole lesson quiz.
+model QuizAttempt {
+  id          String       @id @default(cuid())
+  userId      String
+  questionId  String
+  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  score       Int
+  total       Int
+  correct     Boolean
+  /// JSON string[] of chosen QuizOption ids — reviewed against server truth
+  givenOptionIds String
+  xpEarned    Int          @default(0)
+  createdAt   DateTime     @default(now())
+
+  @@index([userId, questionId])
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Challenges
+// ---------------------------------------------------------------------------
+
+model Challenge {
+  id          String  @id @default(cuid())
+  title       String
+  slug        String  @unique
+  description String
+  instructions String
+  track       String
+  difficulty  String  @default("BEGINNER")
+  /// JSON { html, css, js }
+  starterCode String
+  /// JSON { html, css, js }
+  solution    String
+  /// JSON ValidationTest[] — DOM/CSS assertions, run client-side in the sandbox
+  tests       String
+  /// JSON string[] — progressive hints
+  hints       String
+  xpReward    Int     @default(50)
+  orderIndex  Int     @default(0)
+  published   Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  submissions ChallengeSubmission[]
+  bookmarks   Bookmark[]
+
+  @@index([track, orderIndex])
+}
+
+model ChallengeSubmission {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  /// JSON { html, css, js }
+  code        String
+  passed      Boolean   @default(false)
+  /// JSON array of per-test results
+  results     String
+  hintsUsed   Int       @default(0)
+  submittedAt DateTime  @default(now())
+
+  @@index([userId, challengeId])
+  @@index([challengeId, passed])
+}
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+model Project {
+  id           String  @id @default(cuid())
+  title        String
+  slug         String  @unique
+  description  String
+  track        String
+  difficulty   String  @default("BEGINNER")
+  /// JSON string[] requirements
+  requirements String
+  /// JSON string[] checklist items
+  checklist    String
+  /// JSON { "index.html": "...", "style.css": "...", "script.js": "..." }
+  starterFiles String
+  /// JSON { html, css, js } rendered as the design reference
+  designReference String
+  xpReward     Int     @default(200)
+  orderIndex   Int     @default(0)
+  published    Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  userProjects UserProject[]
+  bookmarks    Bookmark[]
+
+  @@index([track, orderIndex])
+}
+
+model UserProject {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// User-editable portfolio title
+  name      String
+  /// JSON Record<string, string> — one entry per file
+  files     String
+  /// JSON string[] — indices of ticked checklist items
+  checklist String   @default("[]")
+  completed Boolean  @default(false)
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Deliberately NOT unique on (userId, projectId): the spec requires users to
+  // be able to duplicate a project, which means one user can own several copies
+  // of the same starting project under different names.
+  @@index([userId, projectId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Learning paths
+// ---------------------------------------------------------------------------
+
+model LearningPath {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  title       String
+  description String
+  emoji       String  @default("🗺️")
+  /// "FREE" | "PREMIUM"
+  tier        String  @default("FREE")
+  createdAt   DateTime @default(now())
+
+  stages           LearningPathStage[]
+  assignedToUsers  User[]
+  certificates     Certificate[]
+}
+
+model LearningPathStage {
+  id       String       @id @default(cuid())
+  pathId   String
+  path     LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  courseId String
+  course   Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  orderIndex Int
+
+  @@unique([pathId, courseId])
+  @@index([pathId, orderIndex])
+}
+
+// ---------------------------------------------------------------------------
+// Progress, gamification, social
+// ---------------------------------------------------------------------------
+
+model UserProgress {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completed Boolean  @default(false)
+  completedAt DateTime?
+  secondsSpent Int   @default(0)
+  lastPosition Int    @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+  @@index([userId, courseId])
+}
+
+model XpEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "LESSON" | "QUIZ" | "CHALLENGE" | "PROJECT" | "DAILY_LOGIN" | "PERFECT_QUIZ" | "BADGE" | "HINT_PENALTY"
+  reason    String
+  amount    Int
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model DailyActivity {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// YYYY-MM-DD in UTC
+  date            String
+  xpEarned        Int      @default(0)
+  secondsLearned  Int      @default(0)
+  activitiesCount Int      @default(0)
+  goalMet         Boolean  @default(false)
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+model Achievement {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  name        String
+  description String
+  icon        String
+  xpReward    Int     @default(50)
+  /// JSON criteria — evaluated by src/lib/achievements.ts
+  criteria    String
+
+  users UserAchievement[]
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  earnedAt      DateTime    @default(now())
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "LESSON" | "CHALLENGE" | "PROJECT"
+  contentType String
+  contentId   String
+  createdAt DateTime @default(now())
+
+  // Denormalised FKs kept in sync with contentType/contentId so listings can join
+  // without a type switch. contentType + contentId is the source of truth.
+  lesson    Lesson?    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  challenge Challenge? @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lessonId    String?
+  challengeId String?
+  projectId   String?
+
+  @@unique([userId, contentType, contentId])
+  @@index([userId, contentType])
+  @@index([contentType, contentId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, lessonId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+model Certificate {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pathId    String
+  path      LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  serial    String       @unique
+  issuedAt  DateTime     @default(now())
+
+  @@unique([userId, pathId])
+}
+
+// ---------------------------------------------------------------------------
+// Reference docs (powers global search + the quick-reference section)
+// ---------------------------------------------------------------------------
+
+model ReferenceEntry {
+  id       String  @id @default(cuid())
+  track    String
+  title    String
+  syntax   String
+  summary  String
+  example  String
+  /// JSON string[] common mistakes
+  mistakes String
+  keywords String
+  orderIndex Int   @default(0)
+}
