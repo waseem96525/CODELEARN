@@ -9,6 +9,10 @@ import { NextResponse, type NextRequest } from "next/server";
  * `src/lib/auth/session.ts`, which run on the server for every protected page
  * and every mutation. Bypassing or skipping this file grants nothing.
  *
+ * `/certificate/*` is intentionally public: a certificate's whole purpose is
+ * that it can be opened by someone who is not signed in, and the page exposes
+ * nothing beyond the holder's name, the path title and the serial.
+ *
  * Kept free of shared modules/globals so it stays safe if this ever runs at a
  * CDN edge (see the Next.js proxy docs).
  */
@@ -31,7 +35,6 @@ const PROTECTED_PREFIXES = [
   "/achievements",
   "/profile",
   "/settings",
-  "/certificate",
   "/onboarding",
   "/admin",
   "/roadmap",
