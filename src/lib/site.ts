@@ -5,7 +5,7 @@ export const SITE_DESCRIPTION =
 
 export const SITE_TAGLINE = "Learn to Code. Build Real Things.";
 
-const FALLBACK_SITE_URL = "http://localhost:3000";
+const FALLBACK_SITE_URL = "https://codelearn-sepia.vercel.app";
 
 /**
  * Normalises a candidate origin, or returns null if it is unusable.
@@ -38,8 +38,8 @@ function cleanCandidate(value: string | undefined | null): string | null {
  * The public origin, used for canonical URLs and Open Graph tags.
  *
  * Resolution order: the configured value, then the two domains Vercel injects,
- * then localhost. It must never throw — this runs at module scope in the root
- * layout, so a bad value would take down every route in the build.
+ * then the deployed origin. It must never throw — this runs at module scope in
+ * the root layout, so a bad value would take down every route in the build.
  */
 export function siteUrl(): string {
   return (
