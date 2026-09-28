@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { requireUser } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
 
@@ -6,7 +7,7 @@ import { AppShell } from "@/components/app-shell";
  * `requireUser` reads the DB-backed session on the server and redirects if it
  * is missing or expired — the client is never trusted for this.
  */
-export default async function AppLayout({ children }: LayoutProps<"/">) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
 
   return (

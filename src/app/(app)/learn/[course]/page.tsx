@@ -14,7 +14,9 @@ import { cn } from "@/lib/utils";
 
 export async function generateMetadata({
   params,
-}: PageProps<"/learn/[course]">): Promise<Metadata> {
+}: {
+  params: Promise<{ course: string }>;
+}): Promise<Metadata> {
   const { course: courseSlug } = await params;
   const course = await getCourseBySlug(courseSlug);
   if (!course) return { title: "Course not found" };
@@ -30,7 +32,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function CoursePage({ params }: PageProps<"/learn/[course]">) {
+export default async function CoursePage({ params }: { params: Promise<{ course: string }> }) {
   const { course: courseSlug } = await params;
   const user = await requireUser(`/learn/${courseSlug}`);
 

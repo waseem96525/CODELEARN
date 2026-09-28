@@ -2,7 +2,9 @@ import { ResetPasswordForm } from "@/components/reset-password-form";
 
 export default async function ResetPasswordPage({
   searchParams,
-}: PageProps<"/reset-password">) {
+}: {
+  searchParams: Promise<{ token?: string | string[] }>;
+}) {
   const { token } = await searchParams;
   return <ResetPasswordForm token={typeof token === "string" ? token : ""} />;
 }

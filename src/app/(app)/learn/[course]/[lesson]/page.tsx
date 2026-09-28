@@ -21,7 +21,9 @@ import { ShareButton } from "@/components/share-button";
 
 export async function generateMetadata({
   params,
-}: PageProps<"/learn/[course]/[lesson]">): Promise<Metadata> {
+}: {
+  params: Promise<{ course: string; lesson: string }>;
+}): Promise<Metadata> {
   const { course: courseSlug, lesson: lessonSlug } = await params;
   const result = await getLessonByCourseAndSlug(courseSlug, lessonSlug);
   if (!result) return { title: "Lesson not found" };
@@ -41,7 +43,9 @@ export async function generateMetadata({
 
 export default async function LessonPage({
   params,
-}: PageProps<"/learn/[course]/[lesson]">) {
+}: {
+  params: Promise<{ course: string; lesson: string }>;
+}) {
   const { course: courseSlug, lesson: lessonSlug } = await params;
   const user = await requireUser(`/learn/${courseSlug}/${lessonSlug}`);
 
