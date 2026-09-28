@@ -34,6 +34,8 @@ export interface CodePlaygroundProps {
   initialFiles?: Partial<CodeFiles>;
   /** Called by the Save button. Omit to hide it. */
   onSave?: (files: CodeFiles) => Promise<void> | void;
+  /** Fires on every edit (used for autosave). */
+  onFilesChange?: (files: CodeFiles) => void;
   height?: number;
   showConsole?: boolean;
   className?: string;
@@ -48,6 +50,7 @@ let entryId = 0;
 export function CodePlayground({
   initialFiles,
   onSave,
+  onFilesChange,
   height = 420,
   showConsole = true,
   className,
@@ -140,12 +143,17 @@ export function CodePlayground({
   }, [isFullscreen]);
 
   function updateFile(key: keyof CodeFiles, value: string) {
-    setFiles((prev) => ({ ...prev, [key]: value }));
+    setFiles((prev) => {
+      const next = { ...prev, [key]: value };
+      onFilesChange?.(next);
+      return next;
+    });
     setSaved(false);
   }
 
   function handleReset() {
     setFiles(starter);
+    onFilesChange?.(starter);
     setConsoleEntries([]);
     run();
   }
