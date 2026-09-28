@@ -20,15 +20,21 @@ export default async function PlaygroundPage({
   const user = await requireUser("/playground");
   const params = await searchParams;
 
-  const settings = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { editorTheme: true },
-  });
-
-  const theme =
-    settings?.editorTheme === "light" || settings?.editorTheme === "dark"
-      ? settings.editorTheme
-      : "system";
+  // A saved theme preference must never take down the page: if this lookup
+  // fails (for example the production database predates the column), fall
+  // back to the system theme instead of throwing during the server render.
+  let theme: "light" | "dark" | "system" = "system";
+  try {
+    const settings = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { editorTheme: true },
+    });
+    if (settings?.editorTheme === "light" || settings?.editorTheme === "dark") {
+      theme = settings.editorTheme;
+    }
+  } catch {
+    // Intentionally ignored — "system" is a safe default.
+  }
 
   const initialTemplateId = getTemplate(params.template).id;
 
